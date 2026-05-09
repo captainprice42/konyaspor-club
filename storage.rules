@@ -1,0 +1,50 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper: check if user is authenticated
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Helper: validate image content type
+    function isValidImage() {
+      return request.resource.contentType.matches('image/(jpeg|png|webp|gif)');
+    }
+
+    // Helper: validate video content type
+    function isValidVideo() {
+      return request.resource.contentType.matches('video/(mp4|webm|ogg)');
+    }
+
+    // Helper: check file size (10MB max)
+    function isValidSize() {
+      return request.resource.size <= 10 * 1024 * 1024;
+    }
+
+    // ─── Public read for all uploaded media ───────────────────
+    match /uploads/{allPaths=**} {
+      // Anyone can read uploaded files (they're public media)
+      allow read: if true;
+
+      // Only authenticated users can upload
+      // File must be valid type and size
+      allow create: if isAuth() &&
+                       isValidSize() &&
+                       (isValidImage() || isValidVideo());
+
+      // Only the uploader or admins can delete
+      // (Deletion is handled by Admin SDK in API routes)
+      allow delete: if false; // Managed by Admin SDK only
+
+      // No updates to existing files
+      allow update: if false;
+    }
+
+    // ─── Deny everything else ─────────────────────────────────
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

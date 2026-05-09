@@ -1,0 +1,165 @@
+@import "tailwindcss";
+
+/* ── Tailwind v4 theme ───────────────────────────────────────── */
+@theme {
+  /* Radius */
+  --radius: 0.5rem;
+
+  /* Brand green palette */
+  --color-primary-50: #f0fdf4;
+  --color-primary-100: #dcfce7;
+  --color-primary-200: #bbf7d0;
+  --color-primary-300: #86efac;
+  --color-primary-400: #4ade80;
+  --color-primary-500: #22c55e;
+  --color-primary-600: #16a34a;
+  --color-primary-700: #1a5c2e;
+  --color-primary-800: #14532d;
+  --color-primary-900: #0f3d21;
+  --color-primary-950: #052e16;
+
+  /* Gold accent */
+  --color-accent-400: #facc15;
+  --color-accent-500: #d4af37;
+  --color-accent-600: #ca8a04;
+
+  /* Semantic tokens — resolved at theme level for utility class generation */
+  --color-background: oklch(100% 0 0);
+  --color-foreground: oklch(13% 0.028 261);
+  --color-card: oklch(100% 0 0);
+  --color-card-foreground: oklch(13% 0.028 261);
+  --color-popover: oklch(100% 0 0);
+  --color-popover-foreground: oklch(13% 0.028 261);
+  --color-secondary: oklch(96% 0.007 247);
+  --color-secondary-foreground: oklch(21% 0.034 264);
+  --color-muted: oklch(96% 0.007 247);
+  --color-muted-foreground: oklch(55% 0.023 264);
+  --color-destructive: oklch(63% 0.237 25);
+  --color-destructive-foreground: oklch(98% 0 0);
+  --color-border: oklch(91% 0.013 255);
+  --color-input: oklch(91% 0.013 255);
+  --color-ring: oklch(35% 0.12 145);
+
+  /* Font families */
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+
+  /* Animations */
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes slide-in-left {
+    from { opacity: 0; transform: translateX(-20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  --animate-fade-in: fade-in 0.5s ease-out;
+  --animate-slide-in-left: slide-in-left 0.5s ease-out;
+  --animate-shimmer: shimmer 2s linear infinite;
+}
+
+/* ── Dark mode overrides ─────────────────────────────────────── */
+.dark {
+  --color-background: oklch(13% 0.028 261);
+  --color-foreground: oklch(98% 0.003 247);
+  --color-card: oklch(13% 0.028 261);
+  --color-card-foreground: oklch(98% 0.003 247);
+  --color-popover: oklch(13% 0.028 261);
+  --color-popover-foreground: oklch(98% 0.003 247);
+  --color-secondary: oklch(21% 0.034 264);
+  --color-secondary-foreground: oklch(98% 0.003 247);
+  --color-muted: oklch(21% 0.034 264);
+  --color-muted-foreground: oklch(64% 0.02 264);
+  --color-destructive: oklch(40% 0.18 25);
+  --color-destructive-foreground: oklch(98% 0 0);
+  --color-border: oklch(21% 0.034 264);
+  --color-input: oklch(21% 0.034 264);
+  --color-ring: oklch(55% 0.15 145);
+}
+
+/* ── Base styles ─────────────────────────────────────────────── */
+@layer base {
+  * {
+    border-color: var(--color-border);
+    box-sizing: border-box;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--color-muted); }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--color-muted-foreground) 30%, transparent);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--color-muted-foreground) 50%, transparent);
+  }
+}
+
+/* ── Utility classes ─────────────────────────────────────────── */
+@layer utilities {
+  .glass {
+    background-color: rgb(255 255 255 / 0.1);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgb(255 255 255 / 0.2);
+  }
+
+  .glass-dark {
+    background-color: rgb(0 0 0 / 0.2);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgb(255 255 255 / 0.1);
+  }
+
+  .text-gradient {
+    background: linear-gradient(to right, #16a34a, #d4af37);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .bg-hero-pattern {
+    background: linear-gradient(135deg, #1a5c2e 0%, #0f3d21 50%, #052e16 100%);
+  }
+
+  .line-clamp-1 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+}

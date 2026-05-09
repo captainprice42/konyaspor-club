@@ -1,0 +1,208 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Yardımcı fonksiyonlar ────────────────────────────────
+
+    // Kullanıcı giriş yapmış mı?
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Kullanıcı Firestore kaydını getir
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Kullanıcı aktif mi ve rolü var mı?
+    function isActiveUser() {
+      return isAuth() &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             getUserData().isActive == true;
+    }
+
+    // Minimum rol kontrolü (hiyerarşi: viewer < editor < admin < super_admin)
+    function hasMinRole(minRole) {
+      let roles = ['viewer', 'editor', 'admin', 'super_admin'];
+      let userRole = getUserData().role;
+      return isActiveUser() &&
+             roles.indexOf(userRole) >= roles.indexOf(minRole);
+    }
+
+    // Belirli bir role sahip mi?
+    function hasRole(role) {
+      return isActiveUser() && getUserData().role == role;
+    }
+
+    // String uzunluk kontrolü
+    function validString(field, maxLen) {
+      return field is string && field.size() > 0 && field.size() <= maxLen;
+    }
+
+    // ─── users koleksiyonu ───────────────────────────────────
+    match /users/{userId} {
+      // Kendi profilini okuyabilir, adminler hepsini okuyabilir
+      allow read: if isAuth() && (
+        request.auth.uid == userId ||
+        hasMinRole('admin')
+      );
+
+      // Yeni kullanıcı kaydı sadece Admin SDK üzerinden (API route)
+      // Client'tan direkt yazma yasak
+      allow create: if false;
+
+      // Kullanıcı sadece kendi displayName ve photoURL'ini güncelleyebilir
+      // super_admin her şeyi güncelleyebilir
+      allow update: if isAuth() && (
+        (request.auth.uid == userId &&
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['displayName', 'photoURL', 'updatedAt'])) ||
+        hasRole('super_admin')
+      );
+
+      // Sadece super_admin silebilir
+      allow delete: if hasRole('super_admin');
+    }
+
+    // ─── news koleksiyonu ────────────────────────────────────
+    match /news/{articleId} {
+      // Yayınlanmış haberler herkese açık, taslaklar sadece editöre+
+      allow read: if resource.data.status == 'published' ||
+                     hasMinRole('editor');
+
+      // Editör ve üzeri oluşturabilir
+      allow create: if hasMinRole('editor') &&
+                       validString(request.resource.data.title, 200) &&
+                       validString(request.resource.data.content, 500000) &&
+                       request.resource.data.keys().hasAll(['title', 'slug', 'content', 'status', 'authorId']);
+
+      // Editör kendi haberini, admin hepsini güncelleyebilir
+      allow update: if hasMinRole('editor') && (
+        resource.data.authorId == request.auth.uid ||
+        hasMinRole('admin')
+      );
+
+      // Sadece admin silebilir
+      allow delete: if hasMinRole('admin');
+    }
+
+    // ─── players koleksiyonu ─────────────────────────────────
+    match /players/{playerId} {
+      // Aktif oyuncular herkese açık
+      allow read: if resource.data.isActive == true ||
+                     hasMinRole('editor');
+
+      allow create: if hasMinRole('editor') &&
+                       validString(request.resource.data.name, 100) &&
+                       request.resource.data.number is int &&
+                       request.resource.data.number >= 1 &&
+                       request.resource.data.number <= 99;
+
+      allow update: if hasMinRole('editor');
+      allow delete: if hasMinRole('admin');
+    }
+
+    // ─── staff koleksiyonu ───────────────────────────────────
+    match /staff/{staffId} {
+      allow read: if resource.data.isActive == true || hasMinRole('editor');
+      allow create, update: if hasMinRole('editor');
+      allow delete: if hasMinRole('admin');
+    }
+
+    // ─── matches koleksiyonu ─────────────────────────────────
+    match /matches/{matchId} {
+      // Maçlar herkese açık
+      allow read: if true;
+
+      allow create: if hasMinRole('editor') &&
+                       request.resource.data.keys().hasAll(['homeTeam', 'awayTeam', 'scheduledAt', 'status']);
+
+      allow update: if hasMinRole('editor');
+      allow delete: if hasMinRole('admin');
+    }
+
+    // ─── standings koleksiyonu ───────────────────────────────
+    match /standings/{entryId} {
+      // Puan durumu herkese açık
+      allow read: if true;
+      allow create, update: if hasMinRole('editor');
+      allow delete: if hasMinRole('admin');
+    }
+
+    // ─── transfers koleksiyonu ───────────────────────────────
+    match /transfers/{transferId} {
+      // Onaylanmış transferler herkese açık
+      allow read: if resource.data.status == 'confirmed' ||
+                     resource.data.status == 'completed' ||
+                     hasMinRole('editor');
+
+      allow create: if hasMinRole('editor') &&
+                       validString(request.resource.data.playerName, 100);
+
+      allow update: if hasMinRole('editor');
+      allow delete: if hasMinRole('admin');
+    }
+
+    // ─── sponsors koleksiyonu ────────────────────────────────
+    match /sponsors/{sponsorId} {
+      // Aktif sponsorlar herkese açık
+      allow read: if resource.data.isActive == true || hasMinRole('editor');
+      allow create, update: if hasMinRole('admin');
+      allow delete: if hasMinRole('admin');
+    }
+
+    // ─── media koleksiyonu ───────────────────────────────────
+    match /media/{mediaId} {
+      // Public medya herkese açık
+      allow read: if resource.data.isPublic == true || hasMinRole('editor');
+
+      allow create: if hasMinRole('editor') &&
+                       validString(request.resource.data.title, 200) &&
+                       request.resource.data.fileSize is int &&
+                       request.resource.data.fileSize <= 10485760; // 10MB
+
+      // Yükleyen kendi medyasını veya admin hepsini güncelleyebilir
+      allow update: if hasMinRole('editor') && (
+        resource.data.uploadedBy == request.auth.uid ||
+        hasMinRole('admin')
+      );
+
+      allow delete: if hasMinRole('admin') ||
+                       (hasMinRole('editor') && resource.data.uploadedBy == request.auth.uid);
+    }
+
+    // ─── galleries koleksiyonu ───────────────────────────────
+    match /galleries/{galleryId} {
+      allow read: if resource.data.isPublic == true || hasMinRole('editor');
+      allow create, update: if hasMinRole('editor');
+      allow delete: if hasMinRole('admin');
+    }
+
+    // ─── activity_logs koleksiyonu ───────────────────────────
+    // Sadece Admin SDK yazabilir (API route üzerinden)
+    // Okuma sadece admin+
+    match /activity_logs/{logId} {
+      allow read: if hasMinRole('admin');
+      allow write: if false; // Admin SDK kullanır
+    }
+
+    // ─── settings koleksiyonu ────────────────────────────────
+    match /settings/{settingId} {
+      // Site ayarları herkese açık (kulüp adı, renkler vb.)
+      allow read: if true;
+      allow write: if hasMinRole('admin');
+    }
+
+    // ─── rate_limits koleksiyonu ─────────────────────────────
+    // Tamamen Admin SDK yönetir
+    match /rate_limits/{docId} {
+      allow read, write: if false;
+    }
+
+    // ─── Diğer tüm yolları engelle ───────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
