@@ -43,7 +43,10 @@ function getAdminCredentials(): ServiceAccount {
   return {
     projectId,
     clientEmail,
-    privateKey: privateKey.replace(/\\n/g, "\n"),
+    // Handle both escaped \n (from .env files) and real newlines (from Vercel dashboard/CLI)
+    privateKey: privateKey.includes("\\n")
+      ? privateKey.replace(/\\n/g, "\n")
+      : privateKey,
   };
 }
 
